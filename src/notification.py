@@ -1,12 +1,13 @@
 from datetime import datetime
 from enum import Enum
-from tkinter import W
-from typing import List, Tuple
+from typing import List
 import math
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 import redis
 from marshmallow import fields
+from sqlalchemy.orm import sessionmaker
 import settings
 import github_api
 from models import session_factory, User, Repo, get_or_create
@@ -37,10 +38,11 @@ class StarItem:
         ))
 
 @dataclass
-class HandleNotificationResult:
+class UpdateRepoStarsResult:
     initiated: bool
     removed_stars: List[str]
     added_stars: List[str]
+    teleg_subscribed_users: List[str]
 
 
 REPOS_COLLECTION = 'repos'
@@ -120,34 +122,68 @@ class Notification:
         return UnsubscribeResut.OK
 
 
-    def get_repos(self, teleg_user_id: int) -> List[str]:
+    def get_user_repos(self, teleg_user_id: int) -> List[str]:
         '''Get subscribed repos for user'''
 
         with session_factory() as session:
-            return session\
-                            .query(Repo)\
-                            .join(User, Repo.users)\
-                            .filter(User.teleg_user_id == teleg_user_id)\
-                            .all()
+            repos = session\
+                .query(Repo)\
+                .join(User, Repo.users)\
+                .filter(User.teleg_user_id == teleg_user_id)\
+                .all()
+
+            return [repo.url for repo in repos]
 
 
-    def get_repo_stars_diff(self, repo_id: int) -> Tuple[List[str], List[str]]:
+    def update_repo_stars(self, repo_id: int) -> UpdateRepoStarsResult:
         '''Get repo starts for repo by id'''
 
         with session_factory() as session:
             repo = session.query(Repo).filter(Repo.id == repo_id).one()
-            return self.__get_repo_stars_diff(repo)
+            return self.__update_repo_stars(repo, session)
 
 
-    def __get_repo_stars_diff(self, repo: Repo) -> HandleNotificationResult:
-        '''Get diff for stars locally and from the github.'''
-        is_repo_initiated = repo.last_updated_time is None
+    def __get_all_github_starts(self, repo: Repo) -> List[StarItem]:
+        parsed_url = urlparse(repo.url)
 
-        repo_url = repo.url
-        repo_stars_count = self.get_repo_stars_count(repo_url)
+        api_repo_url = f'https://api.github.com/repos{parsed_url.path}'
+        api_repo_stars_url = f'https://api.github.com/repos{parsed_url.path}/stargazers'
+
+        repo_stars_count = self.get_repo_stars_count(api_repo_url)
+
         pages_number = math.ceil(repo_stars_count / self.page_size)
 
-        github_stargazers_pages = []
+        github_stars = []
+
+        for page_number in range(1, pages_number + 1):
+            github_page = list(map(
+                                    StarItem.from_dict,
+                                    self.get_repo_stargazers_page(
+                                        api_repo_stars_url,
+                                        page=page_number,
+                                        size=self.page_size
+                                    )
+                                ))
+
+            for page_item in github_page:
+                github_stars.append(page_item)
+
+        return github_stars
+
+
+    def __update_repo_stars(self, repo: Repo, session: sessionmaker) -> UpdateRepoStarsResult:
+        '''Get diff for stars locally and from the github.'''
+        is_repo_initiated = repo.last_updated_time is not None
+
+        if is_repo_initiated\
+            and (repo.last_updated_time - datetime.utcnow).minutes < settings.MINUTES_UPDATE:
+
+            return UpdateRepoStarsResult(initiated=is_repo_initiated,
+                                            removed_stars=[],
+                                            added_stars=[])
+
+
+        github_stars = self.__get_all_github_starts(repo)
 
         repo_redis_key = 'stars_repo_' + str(repo.id)
         stars_from_db = list(map(
@@ -155,35 +191,21 @@ class Notification:
                                     self.redis_connection.lrange(repo_redis_key, 0, -1)
                                 ))
 
-        for page_number in range(pages_number, 0, -1):
-            github_page = list(map(
-                                    StarItem.from_dict,
-                                    self.get_repo_stargazers_page(repo_url, page_number)
-                                ))
-            github_stargazers_pages.append(github_page)
-
-            prev_items_number = (page_number - 1) * self.page_size
-            if prev_items_number == 0 or \
-                (len(stars_from_db) > prev_items_number and \
-                stars_from_db[prev_items_number].starred_at == github_page[0].starred_at):
-
-                break
-
-        prev_items_number = (page_number - 1) * self.page_size
-
-        github_stargazers_pages.reverse()
-        stars_from_db_updated = stars_from_db[prev_items_number:]
-        github_stargazers = []
-        for page in github_stargazers_pages:
-            for row in page:
-                github_stargazers.append(row)
-
-        stars_from_db_updated_set = set(map(lambda x: x.login, stars_from_db_updated))
-        github_stargazers_set = set(map(lambda x: x.login, github_stargazers))
+        stars_from_db_updated_set = set(map(lambda x: x.login, stars_from_db))
+        github_stargazers_set = set(map(lambda x: x.login, github_stars))
 
         removed_stars = list(github_stargazers_set.difference(stars_from_db_updated_set))
         added_stars = list(stars_from_db_updated_set.difference(github_stargazers_set))
 
-        return HandleNotificationResult(initiated=is_repo_initiated,
-                                        removed_stars=removed_stars,
-                                        added_stars=added_stars)
+        repo.last_updated_time = datetime.utcnow()
+        session.commit()
+
+        self.redis_connection.delete(repo_redis_key)
+        self.redis_connection.lpush(repo_redis_key, *list(map(StarItem.to_json , github_stars)))
+
+        users = [u.teleg_user_id for u in repo.users]
+
+        return UpdateRepoStarsResult(initiated=is_repo_initiated,
+                                     removed_stars=removed_stars,
+                                     added_stars=added_stars,
+                                     teleg_subscribed_users=users)

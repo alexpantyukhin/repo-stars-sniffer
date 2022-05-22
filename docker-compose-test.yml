@@ -1,0 +1,62 @@
+version: '2'
+services:
+
+  postgres:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "notifications"
+      POSTGRES_USER: "notifications_user"
+      POSTGRES_PASSWORD: "123456789-p"
+    ports:
+      - "5432:5432"
+
+  db_migrator:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    command: ['python', 'models.py']
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - C_FORCE_ROOT=true
+      - POSTGRESQL_USER=notifications_user
+      - POSTGRESQL_PASSWORD=123456789-p
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DB=notifications
+
+    depends_on:
+      - postgres
+
+  redis:
+    image: redis
+    ports:
+    - "6379:6379"
+    volumes:
+        - ./data:/data
+    restart: always
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+  test:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    command: ['python', '-m', 'unittest', 'discover', '.', '*_test.py']
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - C_FORCE_ROOT=true
+      - POSTGRESQL_USER=notifications_user
+      - POSTGRESQL_PASSWORD=123456789-p
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DB=notifications
+
+    depends_on:
+      - redis
+      - db_migrator

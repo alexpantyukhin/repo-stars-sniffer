@@ -3,7 +3,7 @@ import celery
 from celery.utils.log import get_task_logger
 from notification import Notification
 import settings
-from src import notification
+from models import Repo, session_factory
 
 app = celery.Celery('github-notification')
 
@@ -25,25 +25,32 @@ def handle_url(url):
     '''Handle the specific url'''
     logger.info('Handle %s is started.', url)
     notification = Notification()
-    notification.get_repo_stars_diff(url)
+    notification.update_repo_stars(url)
     logger.info('Handle %s is finished.', url)
 
 @app.task
-def handle_repo(repo_id):
+def handle_repo(repo_id: int):
     '''Handle repo by id'''
     logger.info('Handle %s is started.', repo_id)
     notification = Notification()
-
-
+    diff_result = notification.update_repo_stars(repo_id)
+    
+    
     logger.info('Handle %s is finished.', repo_id)
 
 
 @app.task
 def handle_urls():
     '''Handle all urls from the DB'''
+
+    repos = []
+    with session_factory() as session:
+        repos = session.filter(Repo).all()
+
+
     notification = Notification()
-    for repo in notification.get_repos():
-        handle_url.delay(repo)
+    for repo in repos:
+        handle_repo.delay(repo.id)
     logger.info('Handle urls is started.')
 
 

@@ -24,8 +24,8 @@ def get_repo_stars_count(repo_url: str) -> int:
     return content['stargazers_count']
 
 
-def get_repo_stargazers_page(repo_url: str, page: int) -> List[Dict[str, str]]:
-    content = _get_request_content(repo_url, page=page)
+def get_repo_stargazers_page(repo_url: str, page: int, size:int) -> List[Dict[str, str]]:
+    content = _get_request_content(repo_url, page=page, size=size)
     return map(lambda x: x['name'] + ' (fork)' if x['fork'] else x['name'], content)
 
 def get_user_repos(user: str) -> List[str]:

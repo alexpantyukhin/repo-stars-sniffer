@@ -1,7 +1,5 @@
 # from tkinter import W
-from email.policy import default
-from xmlrpc.client import Boolean
-from sqlalchemy import DateTime, Column, String, Integer, Boolean Table, ForeignKey, create_engine, PrimaryKeyConstraint
+from sqlalchemy import DateTime, Column, String, Integer, Boolean, Table, ForeignKey, create_engine, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_utils import database_exists, create_database
@@ -47,7 +45,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     teleg_user_id = Column(Integer)
-    repos = relationship("Repo", secondary=association_table, back_populates="users")
+    repos = relationship("Repo", secondary=association_table, backref="users")
 
 
 class Repo(Base):
@@ -57,8 +55,8 @@ class Repo(Base):
     id = Column(Integer, primary_key=True)
     url = Column(String)
     stars_init = Column(Boolean, default=False)
-    last_updated_time = Column(DateTime, nullable=False)
-    users = relationship("User", secondary=association_table, back_populates="repos")
+    last_updated_time = Column(DateTime, nullable=True)
+    #users = relationship("User", secondary=association_table)
     #likes = relationship("Like", back_populates="repo")
 
 

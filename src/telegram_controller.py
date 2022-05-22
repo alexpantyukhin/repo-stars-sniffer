@@ -4,7 +4,6 @@ from typing import List
 from aiogram import Bot, Dispatcher, executor, types
 import settings
 from notification import Notification, SubscribeResult, UnsubscribeResut
-from urllib.parse import urlparse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -45,7 +44,7 @@ async def get_user_subscribed_repos(message: types.Message):
     clean_unsubscribe_states(message)
 
     notification = Notification()
-    user_repos = notification.get_repos(user_id)
+    user_repos = notification.get_user_repos(user_id)
 
     if len(user_repos) == 0:
         await message.answer('There are no subscribed repos for you.')
