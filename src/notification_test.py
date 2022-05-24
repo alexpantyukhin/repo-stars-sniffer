@@ -170,81 +170,88 @@ class NotificationTestCase(unittest.TestCase):
 
         repo = None
         with session_factory() as session:
-            repo = session.query(Repo).filter_by(url = url).first()
+            repo = session.query(Repo).filter_by(url=url).first()
 
         result = notification.update_repo_stars(repo.id)
 
         # Assert
+        with session_factory() as session:
+            repo = session.query(Repo).filter_by(url=url).first()
+            assert repo.last_updated_time is not None
+
         assert result.initiated is False
         assert set(result.teleg_subscribed_users) == set([1])
+        assert len(result.added_stars) == 0
+        assert len(result.removed_stars) == 0
 
 
-# def test_docker_run_redis_with_password():
-#     config = RedisContainer()
-#     with config as redis:
-#         client = redis.get_client(decode_responses=True)
+    def test_update_repo_stars_when_stars_changed(self):
+        '''Test Update repo stars when stars changed'''
 
-#         client.set("hello", "world")
-#         print(client.get("hello"))
-#         assert client.get("hello") == "world"
+        # Arrange
+        stars_pages = [
+            [
+                {
+                    'login': 'login1',
+                    'starred_at': datetime.fromisoformat('2022-01-01T00:00:00.000+00:00')
+                },
+                {
+                    'login': 'login2',
+                    'starred_at': datetime.fromisoformat('2022-01-02T00:00:00.000+00:00')
+                }
+            ],
+            [
+                {
+                    'login': 'login3',
+                    'starred_at': datetime.fromisoformat('2022-01-03T00:00:00.000+00:00')
+                },
+                {
+                    'login': 'login4',
+                    'starred_at': datetime.fromisoformat('2022-01-04T00:00:00.000+00:00')
+                }
+            ],
+            [
+                {
+                    'login': 'login5',
+                    'starred_at': datetime.fromisoformat('2022-01-05T00:00:00.000+00:00')
+                }
+            ],
+        ]
 
+        count = len(reduce(list.__add__, stars_pages))
 
-# def batch(items, page_size):
-#     iterator = iter(items)
+        notification = Notification(get_repo_stars_count=lambda _: count,
+                                    get_repo_stargazers_page=lambda repo_url, page, size: stars_pages[page-1],
+                                    page_size=len(stars_pages[0]))
 
-#     buffer = []
-#     result = []
-#     while True:
-#         value = next(iterator, None)
-#         if value is None:
-#             break
+        # Act
+        url = 'https://github.com/alexpantyukhin/aiohttp-session-mongo'
+        notification.subscribe(1, url)
 
-#         buffer.append(value)
-#         if len(buffer) == page_size:
-#             result.append(buffer)
-#             buffer = []
+        repo_id = None
+        with session_factory() as session:
+            repo_id = session.query(Repo).filter_by(url=url).first().id
 
-#     if len(buffer) > 0:
-#         result.append(buffer)
+        result = notification.update_repo_stars(repo_id)
 
-#     return result
+        with session_factory() as session:
+            repo = session.query(Repo).filter_by(url=url).first()
+            repo_id = repo.id
+            repo.last_updated_time = datetime.fromisoformat('2022-01-01T00:00:00.000+00:00')
+            session.commit()
 
+        stars_pages[-1][0] = {
+                'login': 'login10',
+                'starred_at': datetime.fromisoformat('2022-01-10T00:00:00.000+00:00')
+            }
 
-# def test_notification_get_repo_stars_diff():
-#     config = RedisContainer()
-#     with config as redis:
-#         client = redis.get_client(decode_responses=True)
-#         items = []
-#         for i in range(1, 11):
-#             items.append({
-#                 'starred_at': datetime(2022, 1, i),
-#                 'login': 'login' + str(i)
-#             })
+        result = notification.update_repo_stars(repo_id)
 
-#         repo_name = 'https://api.github.com/repos/alexpantyukhin/go-pattern-match/stargazers'
-#         serializaed_items = list(map(lambda x: notification.StarItem.from_dict(x).to_json() , items))
-#         client.rpush(f'stars_{repo_name}', *serializaed_items)
+        # Assert
+        assert result.initiated is True
+        assert set(result.teleg_subscribed_users) == set([1])
 
-#         githib_items = items.copy()
-#         del githib_items[5]
-#         githib_items.append({
-#             'starred_at': datetime(2022, 1, 20),
-#             'login': 'login' + str(20)
-#         })
-#         page_size = 3
-#         github_paged_items = batch(githib_items, page_size)
-
-
-#         n = notification.Notification(
-#             client,
-#             get_repo_stars_count=lambda _: len(githib_items),
-#             get_repo_stargazers_page = lambda _, x: github_paged_items[x - 1],
-#             page_size=page_size)
-
-#         result = n.update_repo_stars(repo_name)
-
-#         assert len(result[0]) == 1
-#         assert len(result[1]) == 1
-
-
-# test_notification_get_repo_stars_diff()
+        assert len(result.added_stars) == 1
+        assert result.added_stars[0] == 'login10'
+        assert len(result.removed_stars) == 1
+        assert result.removed_stars[0] == 'login5'

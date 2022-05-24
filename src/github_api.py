@@ -33,21 +33,9 @@ def get_user_repos(user: str) -> List[str]:
     repos = _get_request_content(user_url)
 
     return map(lambda x: x, repos)
-    # return map(lambda x: x['name'] + ' (fork)' if x['fork'] else x['name'], repos)
-
-# def get_user_repo_stargazers(user, repo):
-#     stargazers_url = f'https://api.github.com/repos/{user}/{repo}/stargazers'
-#     stargazers = _get_request_content(stargazers_url)
-
-#     return map(lambda x: x['login'], stargazers)
 
 def get_user_repo_stargazers(repo_url: str):
     stargazers_url = repo_url
     stargazers = _get_request_content(stargazers_url)
 
     return map(lambda x: x['login'], stargazers)
-
-
-#for repo in gh.get_user().get_repos():
-#    print(repo)
-#    stargazers_url = repo.stargazers_url 

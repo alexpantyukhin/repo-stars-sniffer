@@ -1,8 +1,8 @@
 '''The telegram bot module'''
 import logging
-from typing import List
 from aiogram import Bot, Dispatcher, executor, types
 import settings
+from common import get_message_lines
 from notification import Notification, SubscribeResult, UnsubscribeResut
 
 logging.basicConfig(level=logging.INFO)
@@ -14,10 +14,6 @@ REPOS_COMMAND = 'repos'
 UNSUBSCRIBE_COMMAND = 'unsubs'
 
 unsubscribe_states_users_ids = set()
-
-def get_message_lines(lines: List[str]) -> str:
-    '''Join string list to string'''
-    return '\n'.join(lines)
 
 def clean_unsubscribe_states(message: types.Message):
     '''Clean unsubscribe state for user'''

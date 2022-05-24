@@ -1,4 +1,5 @@
 # from tkinter import W
+from email.policy import default
 from sqlalchemy import DateTime, Column, String, Integer, Boolean, Table, ForeignKey, create_engine, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -55,7 +56,7 @@ class Repo(Base):
     id = Column(Integer, primary_key=True)
     url = Column(String)
     stars_init = Column(Boolean, default=False)
-    last_updated_time = Column(DateTime, nullable=True)
+    last_updated_time = Column(DateTime, nullable=True, default=None)
     #users = relationship("User", secondary=association_table)
     #likes = relationship("Like", back_populates="repo")
 
