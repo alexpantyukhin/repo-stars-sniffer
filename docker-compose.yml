@@ -48,7 +48,15 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - C_FORCE_ROOT=true
+      - TELEGRAM_API_TOKEN=123456789
+      - POSTGRESQL_USER=notifications_user
+      - POSTGRESQL_PASSWORD=123456789-p
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DB=notifications
     depends_on:
       - redis
       - db_migrator
@@ -65,11 +73,11 @@ services:
       - REDIS_PORT=6379
       - C_FORCE_ROOT=true
       - TELEGRAM_API_TOKEN=123456789
-      - POSTGRESQL_USER = notifications_user
-      - POSTGRESQL_PASSWORD = 123456789-p
-      - POSTGRESQL_HOST = postgres
-      - POSTGRESQL_PORT = 5432
-      - POSTGRESQL_DB = notifications
+      - POSTGRESQL_USER=notifications_user
+      - POSTGRESQL_PASSWORD=123456789-p
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DB=notifications
 
     depends_on:
       - redis
