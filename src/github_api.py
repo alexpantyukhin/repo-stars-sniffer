@@ -3,7 +3,7 @@ from typing import Dict, List
 import json
 import requests
 
-def _get_request_content(base_url, page=None, size=None, headers={}):
+def _get_request_content(base_url, page=None, size=None, headers=None):
     url = base_url
     params = []
     if page is not None:
@@ -15,7 +15,6 @@ def _get_request_content(base_url, page=None, size=None, headers={}):
     params_str = '&'.join(params)
     if len(params) > 0:
         url += '?' + params_str
-
 
     contents = requests.get(url, headers=headers).text
     return json.loads(contents)
@@ -39,15 +38,3 @@ def get_repo_stargazers_page(repo_url: str, page: int, size:int) -> List[Dict[st
                                    headers={'Accept':'application/vnd.github.v3.star+json'})
 
     return list(map(__parse_star_item, content))
-
-def get_user_repos(user: str) -> List[str]:
-    user_url = f'https://api.github.com/users/{user}/repos'
-    repos = _get_request_content(user_url)
-
-    return map(lambda x: x, repos)
-
-def get_user_repo_stargazers(repo_url: str):
-    stargazers_url = repo_url
-    stargazers = _get_request_content(stargazers_url)
-
-    return map(lambda x: x['login'], stargazers)
