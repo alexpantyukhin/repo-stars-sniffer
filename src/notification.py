@@ -49,8 +49,6 @@ class UpdateRepoStarsResult:
         return self.initiated and (len(self.removed_stars) > 0 or len(self.added_stars) > 0)
 
 
-REPOS_COLLECTION = 'repos'
-
 class Notification:
     '''The class represent the '''
     def __init__(
@@ -142,7 +140,7 @@ class Notification:
     def get_all_repos(self) -> List[Repo]:
         '''Get all repos'''
         with session_factory() as session:
-            return session.filter(Repo).all()
+            return session.query(Repo).all()
 
     def get_repo_by_id(self, repo_id: int) -> Repo:
         '''Get repo by id'''

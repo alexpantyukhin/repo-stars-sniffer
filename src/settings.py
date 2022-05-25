@@ -14,4 +14,4 @@ POSTGRESQL_HOST = os.getenv('POSTGRESQL_HOST') or 'localhost'
 POSTGRESQL_PORT = os.getenv('POSTGRESQL_PORT') or '5432'
 POSTGRESQL_DB = os.getenv('POSTGRESQL_DB') or 'db'
 
-SECONDS_UPDATE = os.getenv('SECONDS_UPDATE') or 10 * 60
+SECONDS_UPDATE = os.getenv('SECONDS_UPDATE') or 1 * 60

@@ -33,7 +33,7 @@ class Sender:
 
     async def send(self):
         '''send message to user'''
-        await bot.send_message(self.user, self.message)
+        await bot.send_message(self.user, self.message, disable_web_page_preview=True)
 
 
 @app.task
