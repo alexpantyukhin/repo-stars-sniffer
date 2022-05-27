@@ -18,7 +18,7 @@ bot = Bot(token=settings.TELEGRAM_API_TOKEN)
 app.conf.beat_schedule = {
     'add-every-2-seconds': {
         'task': 'tasks.handle_urls',
-        'schedule': 2.0,
+        'schedule': settings.SECONDS_UPDATE,
     },
 }
 

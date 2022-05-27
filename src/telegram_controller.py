@@ -48,7 +48,7 @@ async def get_user_subscribed_repos(message: types.Message):
 
     answer = ['Subscribed repos:', '']
     for repo in user_repos:
-        answer.append(' - ' + repo.url)
+        answer.append(' - ' + repo)
 
     await message.answer(get_message_lines(answer), disable_web_page_preview=True)
 

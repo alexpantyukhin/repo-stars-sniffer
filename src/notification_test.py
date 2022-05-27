@@ -220,8 +220,14 @@ class NotificationTestCase(unittest.TestCase):
 
         count = len(reduce(list.__add__, stars_pages))
 
-        notification = Notification(get_repo_stars_count=lambda _: count,
-                                    get_repo_stargazers_page=lambda repo_url, page, size: stars_pages[page-1],
+        async def get_repo_stars_count(arg):
+            return count
+
+        async def get_repo_stargazers_page(repo_url, page, size):
+            return stars_pages[page - 1]
+
+        notification = Notification(get_repo_stars_count=get_repo_stars_count,
+                                    get_repo_stargazers_page=get_repo_stargazers_page,
                                     page_size=len(stars_pages[0]))
 
         # Act

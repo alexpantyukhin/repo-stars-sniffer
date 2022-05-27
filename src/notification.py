@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import Dict, List
 import logging
 import math
 from dataclasses import dataclass, field
@@ -8,6 +8,7 @@ from dataclasses_json import dataclass_json, config
 import redis
 from marshmallow import fields
 from sqlalchemy.orm import sessionmaker
+import asyncio 
 from common import get_api_repo_url_from_repo_url
 import settings
 import github_api
@@ -156,26 +157,42 @@ class Notification:
             return self.__update_repo_stars(repo, session)
 
 
-    def __get_all_github_starts(self, repo: Repo) -> List[StarItem]:
-        api_urls_repo_result = get_api_repo_url_from_repo_url(repo.url)
+    async def __put_repo_stars_page(self,
+                                    pages:Dict[int, List[StarItem]],
+                                    page_number: int,
+                                    url: str):
 
-        repo_stars_count = self.get_repo_stars_count(api_urls_repo_result.api_repo_url)
+        page_items = await self.get_repo_stargazers_page(
+            url,
+            page=page_number,
+            size=self.page_size
+        )
 
-        pages_number = math.ceil(repo_stars_count / self.page_size)
-
-        github_stars = []
-
-        for page_number in range(1, pages_number + 1):
-            github_page = list(map(
+        pages[page_number] = list(map(
                                     StarItem.from_dict,
-                                    self.get_repo_stargazers_page(
-                                        api_urls_repo_result.api_repo_stars_url,
-                                        page=page_number,
-                                        size=self.page_size
-                                    )
+                                    page_items
                                 ))
 
-            for page_item in github_page:
+
+    async def __get_all_github_starts(self, repo: Repo) -> List[StarItem]:
+        api_urls_repo_result = get_api_repo_url_from_repo_url(repo.url)
+        repo_stars_count = await self.get_repo_stars_count(api_urls_repo_result.api_repo_url)
+        pages_number = math.ceil(repo_stars_count / self.page_size)
+
+        pages = {}
+        awaitables = []
+        for page_number in range(1, pages_number + 1):
+            awaitables.append(
+                self.__put_repo_stars_page(
+                    pages,
+                    page_number,
+                    api_urls_repo_result.api_repo_stars_url))
+
+        await asyncio.gather(*awaitables)
+
+        github_stars = []
+        for page_number in range(1, pages_number + 1):
+            for page_item in pages[page_number]:
                 github_stars.append(page_item)
 
         return github_stars
@@ -198,7 +215,7 @@ class Notification:
                                          added_stars=[],
                                          teleg_subscribed_users=users)
 
-        stars_from_github = self.__get_all_github_starts(repo)
+        stars_from_github = asyncio.run(self.__get_all_github_starts(repo))
 
         repo_redis_key = 'stars_repo_' + str(repo.id)
         stars_from_db = list(map(

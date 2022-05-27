@@ -15,3 +15,4 @@ POSTGRESQL_PORT = os.getenv('POSTGRESQL_PORT') or '5432'
 POSTGRESQL_DB = os.getenv('POSTGRESQL_DB') or 'db'
 
 SECONDS_UPDATE = os.getenv('SECONDS_UPDATE') or 1 * 60
+GITHUB_KEY = os.getenv('GITHUB_KEY')

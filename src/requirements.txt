@@ -6,3 +6,4 @@ dataclasses-json==0.5.7
 SQLAlchemy==1.4.36
 SQLAlchemy-Utils==0.38.2
 psycopg2-binary==2.9.3
+aiohttp==3.8.1
